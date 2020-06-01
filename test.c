@@ -200,6 +200,57 @@ static esp_ble_adv_data_t adv_data = {
 }
 
 
+/**
+ *  The registring event handler
+ *  @param event	- External event
+ *  @param gatts_if	- GATT profile interface
+ *  @param param	- Parameter data
+ */
+static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
+					  esp_gatts_if_t gatts_if,
+					  esp_ble_gatts_cb_param_t * param)
+{
+	switch(event){
+		case ESP_GATTS_REG_EVT:
+			ESP_LOGI(GATTS_TAG, "REGISTER_APP_EVT, status %d, app+id %d\n", param->reg.status, param->reg.app_id);
+			gl_profile_tab[PROFILE_A_APP_ID].service_idis_primary = true;.
+			gl_profile_tab[PROFILE_A_APP_ID].service_id.id.inst_id = 0x00;
+			gl_profile_tab[PROFILE_A_APP_ID].service_id.id.uuid.len = ESP_UUID_LEN_16;
+			gl_profile_tab[PROFILE_A_APP_ID].service_id.id.uuid.uuid16 = GATTS_SERVICE_UUID_TEST_A;
+
+			esp_ble_gap_set_device_name(TEST_DEVICE_NAME);
+#ifdef CONFIG_SET_RAW_ADV_DATA
+			esp_err_t raw_adv_ret = esp_ble_gap_config_adv_data_raw(raw_adv_data, sizeof(raw_adv_data));
+			if(raw_adv_ret){
+				ESP_LOGE(GATTS_TAG, "config raw adv data failed, error code = %x", raw_adv_ret);
+			}
+			adv_config_done |= adv_config_config_flag;
+			esp_err_t raw_can_ret = esp_ble_gap_config_scan_rsp_data_raw(raw_scan_rsp_data, sizeof(raw_scan_rsp_data));
+			if(raw_scan_ret){
+				ESP_LOFE(GATTS_TAG, "config raw scan rsp data failed, error code = %x", raw_scan_ret);
+			}
+			adv_config_done |= scan_rsp_config_flag;
+#else
+			//config adv data
+			esp_err_t ret = esp_ble_gap_config_adv_data(&scam_rsp_data);
+			if(ret){
+				ESP_LOGE(GATTS_TAG, "config adv data failed, error code")
+			}
+			
+			//config scan repsonse
+			adv_config_done |= adv_config_config_flag;
+			ret = esp_ble_gap_config_adv_data(&scan_rsp_data);
+			if(raw_scan_ret){
+				ESP_LOFE(GATTS_TAG, "config raw scan rsp data failed, error code = %x", ret);
+			}
+			adv_config_done |= scan_rsp_config_flag;
+
+#endif			
+
+	}
+
+}
+
 /* Entry point of project */
 void app_main()
 {
