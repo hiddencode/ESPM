@@ -199,9 +199,8 @@ static esp_ble_adv_data_t adv_data = {
 	.flag = (ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREADR_NOT_SPT),
 }
 
-
 /**
- *  The registring event handler
+ *  The registring event handler of GATT Profile A
  *  @param event	- External event
  *  @param gatts_if	- GATT profile interface
  *  @param param	- Parameter data
@@ -210,15 +209,24 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
 					  esp_gatts_if_t gatts_if,
 					  esp_ble_gatts_cb_param_t * param)
 {
+	// TODO: Switch for alone case,
+	//	 need refactoring
+	//	 or defines another events
+
+	// Event register
 	switch(event){
 		case ESP_GATTS_REG_EVT:
 			ESP_LOGI(GATTS_TAG, "REGISTER_APP_EVT, status %d, app+id %d\n", param->reg.status, param->reg.app_id);
+			// Init global profile A
 			gl_profile_tab[PROFILE_A_APP_ID].service_idis_primary = true;.
 			gl_profile_tab[PROFILE_A_APP_ID].service_id.id.inst_id = 0x00;
 			gl_profile_tab[PROFILE_A_APP_ID].service_id.id.uuid.len = ESP_UUID_LEN_16;
 			gl_profile_tab[PROFILE_A_APP_ID].service_id.id.uuid.uuid16 = GATTS_SERVICE_UUID_TEST_A;
 
+			// Set device name
 			esp_ble_gap_set_device_name(TEST_DEVICE_NAME);
+
+//Custom config using raw data			
 #ifdef CONFIG_SET_RAW_ADV_DATA
 			esp_err_t raw_adv_ret = esp_ble_gap_config_adv_data_raw(raw_adv_data, sizeof(raw_adv_data));
 			if(raw_adv_ret){
@@ -229,7 +237,10 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
 			if(raw_scan_ret){
 				ESP_LOFE(GATTS_TAG, "config raw scan rsp data failed, error code = %x", raw_scan_ret);
 			}
+			// Set adversitize config by value of scanning flag
 			adv_config_done |= scan_rsp_config_flag;
+
+//Default config
 #else
 			//config adv data
 			esp_err_t ret = esp_ble_gap_config_adv_data(&scam_rsp_data);
@@ -243,6 +254,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
 			if(raw_scan_ret){
 				ESP_LOFE(GATTS_TAG, "config raw scan rsp data failed, error code = %x", ret);
 			}
+			// Set adversitize config by value of scanning flag
 			adv_config_done |= scan_rsp_config_flag;
 
 #endif			
@@ -250,6 +262,97 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
 	}
 
 }
+
+/**
+ * The registring GAP event handler 
+ * @param event		- External event
+ * @param param		- Parameter data
+ */
+static void gap_event_handler ( esp_gap_ble_cb_event_t event,
+				esp_ble_gap_cb_param_t * param)
+{
+	switch(event){
+// Config using raw data		
+#ifdef CONFIG_SET_RAW_ADV_DATA
+		case ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT:
+			adv_config_done &= (~adv_config_flag);
+			if (adv_config_done == 0){
+				esp_ble_gap_start_advertising(&adv_params);
+			}
+			break;
+		case ESP_GAP_BLE_SCAN_RSP_DATA_RAW_SET_COMPLETE_EVT:
+			adv_config_done &= (~scan_rsp_config_flag);
+			if (adv_config_done == 0){
+				esp_ble_gap_start_adversting(&adv_params);
+			}
+			break
+// Default config
+#else		
+		case ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT:
+			adv_config_done &= (~adv_config_flag);
+			if (adv_config_done == 0){
+				esp_ble_gap_start_adversting(&adv_params)
+			}
+			break
+		case ESP_GAP_BLE_SCAN_RSP_DATA_SET_COMPLETE_EVT:
+			adv_config_done &= (~scan_rsp_config_flag);
+			if (adv_config_done == 0){
+				esp_ble_gap_start_adversting(&adv_params);
+			}
+			break;	
+#endif
+	}
+}
+
+/**
+ * Structure of parameters for adversting
+ * @mem adv_int_min 		- Minimum adversting interval 
+ *					#Range: 0x0020 to 0x4000
+ *					#Default: N = 0x0800(1.28 s)
+ *					#Time = N * 0.625 msec
+ *					#Time Range: 20 ms to 10.24 sec
+ *
+ * @mem adv_int_max		- Maximum adversting interval
+ *					#Range: 0x0020 to 0x4000
+ *					#Default: N = 0x0800(1.28 s)
+ *					#Time = N * 0.625 msec
+ *					#Time Range: 20 ms to 10.24 sec
+ *
+ * @mem adv_type		- Adversting type
+ * @mem own_addr_type		- Owner bluetooth device address type
+ * @mem peer_addr		- Peer device bluetooth device address
+ * @mem peer_addr_type		- Peer device bluetooth device address type
+ * @mem channel_map		- Adversting channel map
+ * @mem adv_filter_policy	- Adverting filter policy
+ */
+typedef struct esp_ble_adv_params{
+	uint16_t adv_int_min;
+	uint16_t adv_int_max;
+	
+	esp_ble_adv_type_t adv_type;
+	esp_ble_addr_type_t own_addr_type;
+	esp_bd_addr_t peer_addr;
+	esp_ble_addr_type_t peer_addr_type;
+	esp_ble_adv_channel_t channel_map;
+	esp_ble_adv_filter_t adv_filter_policy;
+}esp_ble_adv_params_t;
+
+/**
+ * Init struct of parameters for adversting
+ * with testing data
+ */
+static esp_ble_adv_params_t test_adv_params = {
+	.adv_int_min		= 0x20,
+	.adv_int_max		= 0x40,
+	.adv_type		= ADV_TYPE_IND,
+	.own_addr_type		= BLE_ADDR_TYPE_PUBLIC,
+	//.peer_addr		=
+	//,peer_addr_type	=
+	.channel_map		= ADV_CHNL_ALL,
+	.adv_filter_policy	= ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
+};
+
+
 
 /* Entry point of project */
 void app_main()
