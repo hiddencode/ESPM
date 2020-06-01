@@ -19,77 +19,10 @@
 #include "sdkconfig.h"
 
 
-/**
- *	Initialize configuration
- *	for interaction with BLE
- *	@param ret 	- ESP error handler
- */
-void initialize(esp_err_t ret)
-{
-	// Init Non-Volatile Storage lib
-	ret = nvs_flash_init();
-	// Check flash to error	
-	if(ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND){
-		ESP_ERROR_CHECK(nvs_flash_erase());
-		ret = nvs_flash_init();
-	}
-	ESP_ERROR_CHECK(ret);
-
-	// Init BT controller and check to error
-	esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-	ret = esp_bt_controller_init(&bt_cfg);
-	if(ret){
-		ESP_LOGE(GATTS_TAG, "%s intialize controller failed\n", __func__);
-		return;
-	}
-
-	// Common API
-	// Init Bluedroid stack and check to error
-	ret = esp_bluedroid_init();
-	if(ret){
-		ESP_LOGE(GATTS_TAG, "%s init bluetooth failed\n", __func__);
-		return;
-	}
-	
-	ret = esp_bluedroid_enable();
-	if(ret){
-		ESP_LOGE(GATTS_TAG, "%s enable bluetooth failed", __func__);
-		return;
-	}
-
-	// Init GAP and GATT config
-	// GATT register
-	ret  = esp_ble_gatts_register_callback(gatts_event_handler);
-	if(ret){
-		ESP_LOGE(GATTS_TAG, "gatts register error, error code  %x", ret);
-		return;
-	}
-	// GAP register
-	ret = esp_ble_gap_register_callback(gap_event_handler);
-	if(ret){
-		ESP_LOGE(GATTS_TAG, "gap register error, error code %x", ret);
-		return;
-	}
-
-	// Registers Apllicttion using Applications ID
-	ret = esp_ble_gatts_app_register(PROFILE_A_APP_ID);
-	if(ret){
-		ESP_LOGE(GATTS_TAG, "gatts app register error, error code = %x", ret);
-		return;
-	}
-	ret = esp_ble_gatts_app_register(PROFILE_B_APP_ID);
-	if(ret){
-		ESP_LOGE(GATTS_TAG, "gatts app register error, error code = %x", ret);
-		return;
-	}
-
-	// Local MTU
-	esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(512);
-	if(local_mtu_ret){
-		ESP_LOGE(GATTS_TAG, "set lcoal MTU failed, error code = %x", local_mtu_ret);
-	}
-	return;
-};
+#define GATTS_NUM_HANDLE_TEST_A		4
+#define PROFILE_NUM			2
+#define	PROFILE_A_APP_ID		0
+#define PROFILE_B_APP_ID 		1
 
 /**
  * Structure of GATT Aplication profile
@@ -199,6 +132,117 @@ static esp_ble_adv_data_t adv_data = {
 	.flag = (ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREADR_NOT_SPT),
 }
 
+
+/**
+ * Structure of parameters for adversting
+ * @mem adv_int_min 		- Minimum adversting interval 
+ *					#Range: 0x0020 to 0x4000
+ *					#Default: N = 0x0800(1.28 s)
+ *					#Time = N * 0.625 msec
+ *					#Time Range: 20 ms to 10.24 sec
+ *
+ * @mem adv_int_max		- Maximum adversting interval
+ *					#Range: 0x0020 to 0x4000
+ *					#Default: N = 0x0800(1.28 s)
+ *					#Time = N * 0.625 msec
+ *					#Time Range: 20 ms to 10.24 sec
+ *
+ * @mem adv_type		- Adversting type
+ * @mem own_addr_type		- Owner bluetooth device address type
+ * @mem peer_addr		- Peer device bluetooth device address
+ * @mem peer_addr_type		- Peer device bluetooth device address type
+ * @mem channel_map		- Adversting channel map
+ * @mem adv_filter_policy	- Adverting filter policy
+ */
+typedef struct esp_ble_adv_params{
+	uint16_t adv_int_min;
+	uint16_t adv_int_max;
+	
+	esp_ble_adv_type_t adv_type;
+	esp_ble_addr_type_t own_addr_type;
+	esp_bd_addr_t peer_addr;
+	esp_ble_addr_type_t peer_addr_type;
+	esp_ble_adv_channel_t channel_map;
+	esp_ble_adv_filter_t adv_filter_policy;
+}esp_ble_adv_params_t;
+
+/**
+ * Init struct of parameters for adversting
+ * with testing data
+ */
+static esp_ble_adv_params_t test_adv_params = {
+	.adv_int_min		= 0x20,
+	.adv_int_max		= 0x40,
+	.adv_type		= ADV_TYPE_IND,
+	.own_addr_type		= BLE_ADDR_TYPE_PUBLIC,
+	//.peer_addr		=
+	//,peer_addr_type	=
+	.channel_map		= ADV_CHNL_ALL,
+	.adv_filter_policy	= ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
+};
+
+
+/**
+ * Structure of parameters for adversting
+ * @mem adv_int_min 		- Minimum adversting interval 
+ *					#Range: 0x0020 to 0x4000
+ *					#Default: N = 0x0800(1.28 s)
+ *					#Time = N * 0.625 msec
+ *					#Time Range: 20 ms to 10.24 sec
+ *
+ * @mem adv_int_max		- Maximum adversting interval
+ *					#Range: 0x0020 to 0x4000
+ *					#Default: N = 0x0800(1.28 s)
+ *					#Time = N * 0.625 msec
+ *					#Time Range: 20 ms to 10.24 sec
+ *
+ * @mem adv_type		- Adversting type
+ * @mem own_addr_type		- Owner bluetooth device address type
+ * @mem peer_addr		- Peer device bluetooth device address
+ * @mem peer_addr_type		- Peer device bluetooth device address type
+ * @mem channel_map		- Adversting channel map
+ * @mem adv_filter_policy	- Adverting filter policy
+ */
+typedef struct esp_ble_adv_params{
+	uint16_t adv_int_min;
+	uint16_t adv_int_max;
+	
+	esp_ble_adv_type_t adv_type;
+	esp_ble_addr_type_t own_addr_type;
+	esp_bd_addr_t peer_addr;
+	esp_ble_addr_type_t peer_addr_type;
+	esp_ble_adv_channel_t channel_map;
+	esp_ble_adv_filter_t adv_filter_policy;
+}esp_ble_adv_params_t;
+
+/**
+ * Init struct of parameters for adversting
+ * with testing data
+ */
+static esp_ble_adv_params_t test_adv_params = {
+	.adv_int_min		= 0x20,
+	.adv_int_max		= 0x40,
+	.adv_type		= ADV_TYPE_IND,
+	.own_addr_type		= BLE_ADDR_TYPE_PUBLIC,
+	//.peer_addr		=
+	//,peer_addr_type	=
+	.channel_map		= ADV_CHNL_ALL,
+	.adv_filter_policy	= ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
+};
+
+
+#define GATTS_DEMO_CHAR_VAL_LEN_MAX	0x40
+/* Dummy data */
+uint8_t char1_str[] = {0x11, 0x22, 0x33};
+/* Value to characteristic */
+esp_attr_value_t gatts_demo_char1_val = 
+{
+	.attr_max_len 	= GATTS_DEMO_CHAR_VAL_LEN_MAX,
+	.attr_len	= sizeof(char1_str),
+	.attr_value 	= char1_str,
+};
+
+
 /**
  *  The registring event handler of GATT Profile A
  *  @param event	- External event
@@ -259,8 +303,84 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
 
 #endif			
 
+		case ESP_GATTS_CREATE_EVT:
+			ESP_LOGI(GATTS_TAG, "CREATE_SERVICE_EVT, status %d, service_handle %d\n", param->create.status, param->create.service_handle);
+			gl_profile_tab[PROFILE_A_APP_ID].service_handle = param->create.service_handle;
+			gl_profile_tab[PROFILE_A_APP_ID].char_uuid.len = ESP_UUID_LEN_16;
+			gl_profile_tab[PROFILE_A_APP_ID].char_uuid.uuid.uuid16 = GATTS_CHAR_UIID_TEST_A;
+
+			esp_ble_gatts_start_service(gl_profile_tab[PROFILE_A_APP_ID].service_handle);
+			a_property = ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
+			
+			esp_err_t add_char_ret = esp_ble_gatts_add_char(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
+									&gl_profile_tab[PROFILE_APP_ID].char_uuid,
+									ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
+									a_property,
+									&gatts_demo_char1_val,
+									NULL);
+			if(add_char_ret){
+				ESP_LOGE(GATTS_TAG, "add char failed, error code = %x", add_char_ret);
+			}
+			break;
+		case ESP_GATTS_ADD_CHAR_EVT:{
+			uint16_t lenght = 0;
+			const uint8_t * prf_char;
+
+			ESP_LOGI(GATTS_TAG, "ADD_CHAR_EVT, status %d, attr_handle %d, service_handle %d\n", param->add_char.status,
+													    param->add_char.attr_handle,
+													    param->add_char.service_handle);
+			gl_profile_tab[PROFILE_A_APP_ID].char_handle = param->add_char.attr_handle;
+			gl_profile_tab[PROFILE_A_APP_ID].descr_uuid.len = ESP_UUID_LEN_16;
+			gl_profile_tab[PROFILE_A_APP_ID].descr_uuid.uuid.uuid16 = ESP_GATT_UUID_CHAR_CLIENT_CONFIG;
+
+			esp_err_t get_attr_ret = esp_ble_gatts_get_attr_value(param->add_char.attr_handle, &lenght, &prf_char);
+			if(get_attr_ret == ESP_FAIL){
+				ESP_LOGE(GATTS_TAG, "ILLEGAL HANDLE");
+				ESP_LOGI(GATTS_TAG, "the gatts demo char length = %x\n", length);
+				for(int i = 0; i < length; i++){
+					ESP_LOGI(GATTS_TAG, "prf_char[%x] = %x\n", i, prf_char[i])
+				}
+				esp_err_t add_descr_ret = esp_ble_gatts_add_char_descr(gl_profile_tab[PROFILE_A_APP_ID].service_handle,
+											&gl_profile_tab[PROFILE_A_APP_ID].descr_uuid,
+											ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
+											NULL,
+											NULL);
+				if(add_descr_ret){
+					ESP_LOGE(GATTS_TAG, "add char descr failed, error code = %x", add_descr_ret);
+				}
+				break;
+			}
+
+
+		}
 	}
 
+}
+
+/**
+ *  The registring event handler of GATT Profile B
+ *  @param event	- External event
+ *  @param gatts_if	- GATT profile interface
+ *  @param param	- Parameter data
+ */
+static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event,
+			         	  esp_gatts_if_t gatts_if,
+					  esp_ble_gatts_cb_param_t * param)
+{
+	// Event register
+	switch(event){
+		case ESP_GATTS_REG_EVT:
+			ESP_LOGI(GATTS_TAG, "REGISTER_APP_EVT, status %d, app_id %d\n", param->reg.status, param->reg.app_id);
+			// Init global profile A
+			gl_profile_tab[PROFILE_A_APP_ID].service_idis_primary = true;.
+			gl_profile_tab[PROFILE_A_APP_ID].service_id.id.inst_id = 0x00;
+			gl_profile_tab[PROFILE_A_APP_ID].service_id.id.uuid.len = ESP_UUID_LEN_16;
+			gl_profile_tab[PROFILE_A_APP_ID].service_id.id.uuid.uuid16 = GATTS_SERVICE_UUID_TEST_B;
+
+			esp_ble_gatts_create_service(gatts_if, &gl_profile_tab[PROFILE_B_APP_ID].service_id, GATTS_NUM_HANDLE_TEST_B);
+			break;
+
+	}
 }
 
 /**
@@ -305,54 +425,6 @@ static void gap_event_handler ( esp_gap_ble_cb_event_t event,
 }
 
 /**
- * Structure of parameters for adversting
- * @mem adv_int_min 		- Minimum adversting interval 
- *					#Range: 0x0020 to 0x4000
- *					#Default: N = 0x0800(1.28 s)
- *					#Time = N * 0.625 msec
- *					#Time Range: 20 ms to 10.24 sec
- *
- * @mem adv_int_max		- Maximum adversting interval
- *					#Range: 0x0020 to 0x4000
- *					#Default: N = 0x0800(1.28 s)
- *					#Time = N * 0.625 msec
- *					#Time Range: 20 ms to 10.24 sec
- *
- * @mem adv_type		- Adversting type
- * @mem own_addr_type		- Owner bluetooth device address type
- * @mem peer_addr		- Peer device bluetooth device address
- * @mem peer_addr_type		- Peer device bluetooth device address type
- * @mem channel_map		- Adversting channel map
- * @mem adv_filter_policy	- Adverting filter policy
- */
-typedef struct esp_ble_adv_params{
-	uint16_t adv_int_min;
-	uint16_t adv_int_max;
-	
-	esp_ble_adv_type_t adv_type;
-	esp_ble_addr_type_t own_addr_type;
-	esp_bd_addr_t peer_addr;
-	esp_ble_addr_type_t peer_addr_type;
-	esp_ble_adv_channel_t channel_map;
-	esp_ble_adv_filter_t adv_filter_policy;
-}esp_ble_adv_params_t;
-
-/**
- * Init struct of parameters for adversting
- * with testing data
- */
-static esp_ble_adv_params_t test_adv_params = {
-	.adv_int_min		= 0x20,
-	.adv_int_max		= 0x40,
-	.adv_type		= ADV_TYPE_IND,
-	.own_addr_type		= BLE_ADDR_TYPE_PUBLIC,
-	//.peer_addr		=
-	//,peer_addr_type	=
-	.channel_map		= ADV_CHNL_ALL,
-	.adv_filter_policy	= ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
-};
-
-/**
  * Common GATT profile handler
  * Store the generated interface,
  * correspondig profile event handler
@@ -387,6 +459,78 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
 	}while(0);
 }
 
+
+/**
+ *	Initialize configuration
+ *	for interaction with BLE
+ *	@param ret 	- ESP error handler
+ */
+void initialize(esp_err_t ret)
+{
+	// Init Non-Volatile Storage lib
+	ret = nvs_flash_init();
+	// Check flash to error	
+	if(ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND){
+		ESP_ERROR_CHECK(nvs_flash_erase());
+		ret = nvs_flash_init();
+	}
+	ESP_ERROR_CHECK(ret);
+
+	// Init BT controller and check to error
+	esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+	ret = esp_bt_controller_init(&bt_cfg);
+	if(ret){
+		ESP_LOGE(GATTS_TAG, "%s intialize controller failed\n", __func__);
+		return;
+	}
+
+	// Common API
+	// Init Bluedroid stack and check to error
+	ret = esp_bluedroid_init();
+	if(ret){
+		ESP_LOGE(GATTS_TAG, "%s init bluetooth failed\n", __func__);
+		return;
+	}
+	
+	ret = esp_bluedroid_enable();
+	if(ret){
+		ESP_LOGE(GATTS_TAG, "%s enable bluetooth failed", __func__);
+		return;
+	}
+
+	// Init GAP and GATT config
+	// GATT register
+	ret  = esp_ble_gatts_register_callback(gatts_event_handler);
+	if(ret){
+		ESP_LOGE(GATTS_TAG, "gatts register error, error code  %x", ret);
+		return;
+	}
+	// GAP register
+	ret = esp_ble_gap_register_callback(gap_event_handler);
+	if(ret){
+		ESP_LOGE(GATTS_TAG, "gap register error, error code %x", ret);
+		return;
+	}
+
+	// Registers Apllicttion using Applications ID
+	ret = esp_ble_gatts_app_register(PROFILE_A_APP_ID);
+	if(ret){
+		ESP_LOGE(GATTS_TAG, "gatts app register error, error code = %x", ret);
+		return;
+	}
+	ret = esp_ble_gatts_app_register(PROFILE_B_APP_ID);
+	if(ret){
+		ESP_LOGE(GATTS_TAG, "gatts app register error, error code = %x", ret);
+		return;
+	}
+
+	// Local MTU
+	esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(511);
+	if(local_mtu_ret){
+		ESP_LOGE(GATTS_TAG, "set lcoal MTU failed, error code = %x", local_mtu_ret);
+	}
+	return;
+};
 
 /* Entry point of project */
 void app_main()
