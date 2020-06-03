@@ -76,7 +76,7 @@ static uint8_t raw_scan_rsp_data[] = {
         0x45, 0x4d, 0x4f
 };
 #else
-
+// Adversting UUID of service
 static uint8_t adv_service_uuid128[32] = {
     /* LSB <--------------------------------------------------------------------------------> MSB */
     //first uuid, 16bit, [12],[13] is the value
@@ -140,7 +140,10 @@ static esp_ble_adv_params_t adv_params = {
 #define PROFILE_A_APP_ID 0
 #define PROFILE_B_APP_ID 1
 
-
+/*
+ *
+ *
+ */
 struct gatts_profile_inst {
     esp_gatts_cb_t gatts_cb;
     uint16_t gatts_if;
@@ -158,10 +161,13 @@ struct gatts_profile_inst {
 
 /* One gatt-based profile one app_id and one gatts_if, this array will store the gatts_if returned by ESP_GATTS_REG_EVT */
 static struct gatts_profile_inst gl_profile_tab[PROFILE_NUM] = {
+    // First service 
     [PROFILE_A_APP_ID] = {
         .gatts_cb = gatts_profile_a_event_handler,
         .gatts_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
     },
+
+//  Second service
 //    [PROFILE_B_APP_ID] = {
 //        .gatts_cb = gatts_profile_b_event_handler,                   /* This demo does not implement, similar as profile A */
 //        .gatts_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
@@ -180,7 +186,9 @@ static prepare_type_env_t a_prepare_write_env;
 #define BLINK_GPIO 2
 #define MAX_GPIO 34
 
-/* */
+/*
+ * Turning On/Off LED
+ */
 void blink()
 {
     gpio_pad_select_gpio(BLINK_GPIO);
@@ -205,6 +213,12 @@ void blink()
 void example_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param);
 void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param);
 
+
+/*
+ * Common event handler
+ * @param event     - Ble event
+ * @param param     - Pointer to parameter 
+ */
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
     ESP_LOGI(TRACKER_TAG, "gap_event_handler::entry");
@@ -272,6 +286,10 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
     }
 }
 
+/*
+ * 
+ *
+ */
 void example_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param){
     esp_gatt_status_t status = ESP_GATT_OK;
     if (param->write.need_rsp){
@@ -316,6 +334,11 @@ void example_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare
     }
 }
 
+
+/*
+ *
+ *
+ */
 void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param){
 
     //ESP_LOGI();
@@ -333,7 +356,13 @@ void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble
 }
 
 
-
+/*
+ * Processing event of Service A
+ *
+ * @param event     -
+ * @param gatts_if  -
+ * @param param     -
+ */
 static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
     switch (event) {
     case ESP_GATTS_REG_EVT:
@@ -550,7 +579,10 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
     }
 }
 
-
+/* Common (general) service handler
+ *
+ *
+ */
 static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
 {
     /* If event is register event, store the gatts_if for each profile */
@@ -580,6 +612,9 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
     } while (0);
 }
 
+
+
+// Entry point of project
 void app_main(void)
 {
     esp_err_t ret;
@@ -644,4 +679,3 @@ void app_main(void)
 
     return;
 }
-
